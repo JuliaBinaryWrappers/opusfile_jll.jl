@@ -4,78 +4,22 @@ export libopusfile, libopusurl
 using Ogg_jll
 using Opus_jll
 using OpenSSL_jll
-## Global variables
-PATH = ""
-LIBPATH = ""
-LIBPATH_env = "LD_LIBRARY_PATH"
-
-# Relative path to `libopusfile`
-const libopusfile_splitpath = ["lib", "libopusfile.so"]
-
-# This will be filled out by __init__() for all products, as it must be done at runtime
-libopusfile_path = ""
-
-# libopusfile-specific global declaration
-# This will be filled out by __init__()
-libopusfile_handle = C_NULL
-
-# This must be `const` so that we can use it with `ccall()`
-const libopusfile = "libopusfile.so.0"
-
-
-# Relative path to `libopusurl`
-const libopusurl_splitpath = ["lib", "libopusurl.so"]
-
-# This will be filled out by __init__() for all products, as it must be done at runtime
-libopusurl_path = ""
-
-# libopusurl-specific global declaration
-# This will be filled out by __init__()
-libopusurl_handle = C_NULL
-
-# This must be `const` so that we can use it with `ccall()`
-const libopusurl = "libopusurl.so.0"
-
-
-"""
-Open all libraries
-"""
+JLLWrappers.@generate_wrapper_header("opusfile")
+JLLWrappers.@declare_library_product(libopusfile, "libopusfile.so.0")
+JLLWrappers.@declare_library_product(libopusurl, "libopusurl.so.0")
 function __init__()
-    global artifact_dir = abspath(artifact"opusfile")
+    JLLWrappers.@generate_init_header(Ogg_jll, Opus_jll, OpenSSL_jll)
+    JLLWrappers.@init_library_product(
+        libopusfile,
+        "lib/libopusfile.so",
+        RTLD_LAZY | RTLD_DEEPBIND,
+    )
 
-    # Initialize PATH and LIBPATH environment variable listings
-    global PATH_list, LIBPATH_list
-    # We first need to add to LIBPATH_list the libraries provided by Julia
-    append!(LIBPATH_list, [joinpath(Sys.BINDIR, Base.LIBDIR, "julia"), joinpath(Sys.BINDIR, Base.LIBDIR)])
-    # From the list of our dependencies, generate a tuple of all the PATH and LIBPATH lists,
-    # then append them to our own.
-    foreach(p -> append!(PATH_list, p), (Ogg_jll.PATH_list, Opus_jll.PATH_list, OpenSSL_jll.PATH_list,))
-    foreach(p -> append!(LIBPATH_list, p), (Ogg_jll.LIBPATH_list, Opus_jll.LIBPATH_list, OpenSSL_jll.LIBPATH_list,))
+    JLLWrappers.@init_library_product(
+        libopusurl,
+        "lib/libopusurl.so",
+        RTLD_LAZY | RTLD_DEEPBIND,
+    )
 
-    global libopusfile_path = normpath(joinpath(artifact_dir, libopusfile_splitpath...))
-
-    # Manually `dlopen()` this right now so that future invocations
-    # of `ccall` with its `SONAME` will find this path immediately.
-    global libopusfile_handle = dlopen(libopusfile_path)
-    push!(LIBPATH_list, dirname(libopusfile_path))
-
-    global libopusurl_path = normpath(joinpath(artifact_dir, libopusurl_splitpath...))
-
-    # Manually `dlopen()` this right now so that future invocations
-    # of `ccall` with its `SONAME` will find this path immediately.
-    global libopusurl_handle = dlopen(libopusurl_path)
-    push!(LIBPATH_list, dirname(libopusurl_path))
-
-    # Filter out duplicate and empty entries in our PATH and LIBPATH entries
-    filter!(!isempty, unique!(PATH_list))
-    filter!(!isempty, unique!(LIBPATH_list))
-    global PATH = join(PATH_list, ':')
-    global LIBPATH = join(LIBPATH_list, ':')
-
-    # Add each element of LIBPATH to our DL_LOAD_PATH (necessary on platforms
-    # that don't honor our "already opened" trick)
-    #for lp in LIBPATH_list
-    #    push!(DL_LOAD_PATH, lp)
-    #end
+    JLLWrappers.@generate_init_footer()
 end  # __init__()
-
